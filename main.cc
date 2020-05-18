@@ -1,11 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-//采用https://github.com/mackron/dr_libs/blob/master/dr_wav.h 解码
+
 #define DR_WAV_IMPLEMENTATION
 
 #include "dr_wav.h"
-#include "aecm.h"
 #include "timing.h"
 
 #ifndef nullptr
@@ -16,35 +15,37 @@
 #define  MIN(A, B)        ((A) < (B) ? (A) : (B))
 #endif
 
+#include "aecm/echo_control_mobile.h"
+
+
 //写wav文件
 void wavWrite_int16(char *filename, int16_t *buffer, size_t sampleRate, size_t totalSampleCount) {
+    drwav wav;
     drwav_data_format format = {};
     format.container = drwav_container_riff;     // <-- drwav_container_riff = normal WAV files, drwav_container_w64 = Sony Wave64.
     format.format = DR_WAVE_FORMAT_PCM;          // <-- Any of the DR_WAVE_FORMAT_* codes.
     format.channels = 1;
-    format.sampleRate = (drwav_uint32) sampleRate;
+    format.sampleRate = sampleRate;
     format.bitsPerSample = 16;
-    drwav *pWav = drwav_open_file_write(filename, &format);
-    if (pWav) {
-        drwav_uint64 samplesWritten = drwav_write(pWav, totalSampleCount, buffer);
-        drwav_uninit(pWav);
-        if (samplesWritten != totalSampleCount) {
-            fprintf(stderr, "ERROR\n");
-            exit(1);
-        }
+    drwav_init_file_write(&wav, filename, &format, NULL);
+    drwav_uint64 framesWritten = drwav_write_pcm_frames(&wav, totalSampleCount, buffer);
+    drwav_uninit(&wav);
+    if (framesWritten != totalSampleCount) {
+        fprintf(stderr, "ERROR\n");
+        exit(1);
     }
 }
 
 //读取wav文件
 int16_t *wavRead_int16(char *filename, uint32_t *sampleRate, uint64_t *totalSampleCount) {
     unsigned int channels;
-    int16_t *buffer = drwav_open_and_read_file_s16(filename, &channels, sampleRate, totalSampleCount);
+    int16_t *buffer = drwav_open_file_and_read_pcm_frames_s16(filename, &channels, sampleRate, totalSampleCount, NULL);
     if (buffer == nullptr) {
         printf("读取wav文件失败.");
     }
     //仅仅处理单通道音频
     if (channels != 1) {
-        drwav_free(buffer);
+        drwav_free(buffer, NULL);
         buffer = nullptr;
         *sampleRate = 0;
         *totalSampleCount = 0;
@@ -102,11 +103,12 @@ int aecProcess(int16_t *far_frame, int16_t *near_frame, uint32_t sampleRate, siz
     config.cngMode = AecmTrue;
     config.echoMode = nMode;// 0, 1, 2, 3 (default), 4
     size_t samples = MIN(160, sampleRate / 100);
-    if (samples == 0) return -1;
+    if (samples == 0)
+        return -1;
     const int maxSamples = 160;
     int16_t *near_input = near_frame;
     int16_t *far_input = far_frame;
-    size_t nTotal = (samplesCount / samples);
+    size_t nCount = (samplesCount / samples);
     void *aecmInst = WebRtcAecm_Create();
     if (aecmInst == NULL) return -1;
     int status = WebRtcAecm_Init(aecmInst, sampleRate);//8000 or 16000 Sample rate
@@ -123,7 +125,7 @@ int aecProcess(int16_t *far_frame, int16_t *near_frame, uint32_t sampleRate, siz
     }
 
     int16_t out_buffer[maxSamples];
-    for (int i = 0; i < nTotal; i++) {
+    for (size_t i = 0; i < nCount; i++) {
         if (WebRtcAecm_BufferFarend(aecmInst, far_input, samples) != 0) {
             printf("WebRtcAecm_BufferFarend() failed.");
             WebRtcAecm_Free(aecmInst);
