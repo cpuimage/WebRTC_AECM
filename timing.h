@@ -21,14 +21,7 @@ static
 uint64_t nanotimer() {
     static int ever = 0;
 #if defined(__APPLE__)
-    static mach_timebase_info_data_t frequency;
-    if (!ever) {
-        if (mach_timebase_info(&frequency) != KERN_SUCCESS) {
-            return 0;
-        }
-        ever = 1;
-    }
-    return;
+    return clock_gettime_nsec_np(CLOCK_MONOTONIC);
 #elif defined(_WIN32)
     static LARGE_INTEGER frequency;
     if (!ever) {
