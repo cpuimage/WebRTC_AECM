@@ -187,7 +187,7 @@ int main(int argc, char *argv[]) {
     char ext[256];
     char out_file[1024];
     splitpath(near_file, drive, dir, fname, ext);
-    sprintf(out_file, "%s%s%s_out%s", drive, dir, fname, ext);
+    snprintf(out_file, sizeof(out_file), "%s%s%s_out%s", drive, dir, fname, ext);
     AECM(near_file, far_file, out_file);
     printf("press any key to exit. \n");
     getchar();

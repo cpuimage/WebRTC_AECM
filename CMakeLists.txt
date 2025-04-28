@@ -26,4 +26,4 @@ list(FILTER AECM_SRC EXCLUDE REGEX ".*aecm_core_neon.cc$")
 list(FILTER AECM_SRC EXCLUDE REGEX ".*aecm_core_mips.cc$")
 set(AECM_COMPILE_CODE ${AECM_SRC})
 
-add_executable(aecm main.cc ${AECM_COMPILE_CODE})
+add_executable(aecm_run main.cc ${AECM_COMPILE_CODE})
